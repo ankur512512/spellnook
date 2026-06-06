@@ -31,7 +31,7 @@ export function Board() {
                   letter={letter}
                   status={status}
                   revealed={!!rowStatuses}
-                  revealDelay={rowStatuses ? c * 250 : 0}
+                  revealDelay={rowStatuses ? c * 380 : 0}
                 />
               );
             })}

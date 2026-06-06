@@ -311,13 +311,11 @@ async def ws_room(
             if room.host_id == player.id:
                 room.host_id = next(iter(room.players), None)
         else:
-            # Transient disconnect: keep progress, mark offline, reassign host.
+            # Transient disconnect: keep progress AND host role — the player
+            # (including the host) is expected to reconnect. The host only
+            # changes on an explicit leave, so start stays host-only.
             player.connected = False
             player.ws = None
-            if room.host_id == player.id:
-                room.host_id = next(
-                    (p.id for p in room.players.values() if p.connected), None
-                )
 
         if room.players:
             room.maybe_finish()

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { fetchDailyGame, submitGuess } from "./api";
 import { useAuth } from "./auth/authStore";
+import { buzzInvalid, buzzWin } from "./haptics";
 import type { DailyGame, LetterStatus } from "./types";
 
 type Phase = "loading" | "playing" | "won" | "lost";
@@ -100,6 +101,7 @@ export const useGame = create<GameState>((set, get) => ({
     if (current.length !== game.wordLength) {
       flash(set, "Not enough letters");
       bump(set);
+      buzzInvalid();
       return;
     }
 
@@ -109,6 +111,7 @@ export const useGame = create<GameState>((set, get) => ({
     if (!result.valid) {
       flash(set, result.reason === "not_in_word_list" ? "Not in word list" : "Invalid guess");
       bump(set);
+      buzzInvalid();
       return;
     }
 
@@ -135,8 +138,12 @@ export const useGame = create<GameState>((set, get) => ({
       answer: result.answer ?? null,
     });
 
-    if (phaseNext === "won") flash(set, pickWinWord(nextGuesses.length), 4000);
-    else if (phaseNext === "lost") flash(set, (result.answer ?? "").toUpperCase(), 6000);
+    if (phaseNext === "won") {
+      flash(set, pickWinWord(nextGuesses.length), 4000);
+      buzzWin();
+    } else if (phaseNext === "lost") {
+      flash(set, (result.answer ?? "").toUpperCase(), 6000);
+    }
 
     // Record the finished game for signed-in players (best-effort).
     if (phaseNext !== "playing") {
