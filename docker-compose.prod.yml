@@ -1,0 +1,52 @@
+# Production-like: nginx serves built frontend and proxies /api + /ws to backend.
+# App: http://localhost:8080
+# NOTE: provide real secrets via environment / a secrets manager — do not commit them.
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spellnook}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-spellnook}
+    volumes:
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spellnook}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: prod
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-spellnook}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-spellnook}
+      # Same-origin behind nginx => empty (no cross-origin). Set if API is split out.
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      SPELLNOOK_JWT_SECRET: ${SPELLNOOK_JWT_SECRET:?set SPELLNOOK_JWT_SECRET}
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # Runtime-injected into /config.js at container start (single image, any env).
+      # API/WS are same-origin behind nginx, so apiUrl stays empty (relative URLs).
+      SPELLNOOK_API_URL: ""
+      SPELLNOOK_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

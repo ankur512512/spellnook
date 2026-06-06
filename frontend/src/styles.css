@@ -1,0 +1,810 @@
+:root {
+  /* Dark theme (default) */
+  --bg: #121213;
+  --fg: #ffffff;
+  --muted: #818384;
+  --tile-border: #3a3a3c;
+  --tile-border-filled: #565758;
+  --key-bg: #818384;
+  --key-fg: #ffffff;
+  --correct: #538d4e;
+  --present: #b59f3b;
+  --absent: #3a3a3c;
+  /* Scales down on short viewports so the board + keyboard fit without scroll. */
+  --tile-size: min(62px, 6.4vh);
+}
+
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --fg: #1a1a1b;
+  --muted: #787c7e;
+  --tile-border: #d3d6da;
+  --tile-border-filled: #878a8c;
+  --key-bg: #d3d6da;
+  --key-fg: #1a1a1b;
+  --correct: #6aaa64;
+  --present: #c9b458;
+  --absent: #787c7e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* fit the visual viewport on mobile (browser chrome aware) */
+  max-width: 500px;
+  margin: 0 auto;
+  overflow: hidden; /* the board scales to fit; page itself never scrolls */
+}
+
+.header {
+  position: relative;
+  border-bottom: 1px solid var(--tile-border);
+  text-align: center;
+}
+
+.header h1 {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-size: 1.9rem;
+  margin: 10px 0;
+}
+
+.header-right {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-toggle {
+  background: transparent;
+  border: 0;
+  color: var(--fg);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 6px;
+  line-height: 1;
+}
+
+.avatar-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  object-fit: cover;
+}
+
+.avatar-lg {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  font-size: 0.85rem;
+}
+
+.controls .label {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+}
+
+.len-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--tile-border-filled);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.len-btn.active {
+  background: var(--correct);
+  border-color: var(--correct);
+  color: #fff;
+}
+
+.main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.loading {
+  opacity: 0.6;
+}
+
+/* ---- Toast ---- */
+.toast {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  color: #000;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-weight: 700;
+  z-index: 10;
+  animation: fade-in 0.1s ease;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---- Board ---- */
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+  /* Deterministic width from --cols (set on .board) so the board never
+     collapses to its content inside a flex parent; shrinks on narrow screens. */
+  width: calc(var(--cols, 5) * var(--tile-size) + (var(--cols, 5) - 1) * 5px);
+  max-width: 100%;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), 1fr);
+  gap: 5px;
+}
+
+.row.shake {
+  animation: shake 0.5s;
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  80% {
+    transform: translateX(4px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-8px);
+  }
+  40%,
+  60% {
+    transform: translateX(8px);
+  }
+}
+
+/* ---- Tile ---- */
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  font-size: clamp(1.4rem, 7vw, 2rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  border: 2px solid var(--tile-border);
+  user-select: none;
+}
+
+.tile.filled {
+  border-color: var(--tile-border-filled);
+  animation: pop 0.1s ease;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.9);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Pre-reveal typed state */
+.tile.s-tbd,
+.tile.s-empty {
+  background: transparent;
+}
+
+/* Flip reveal animation applied once a row is scored */
+.tile.revealed {
+  animation: flip 0.5s ease forwards;
+}
+
+@keyframes flip {
+  0% {
+    transform: rotateX(0);
+  }
+  50% {
+    transform: rotateX(-90deg);
+  }
+  100% {
+    transform: rotateX(0);
+  }
+}
+
+.tile.revealed.s-correct,
+.tile.revealed.s-present,
+.tile.revealed.s-absent {
+  color: #fff;
+}
+
+.tile.revealed.s-correct {
+  background: var(--correct);
+  border-color: var(--correct);
+}
+.tile.revealed.s-present {
+  background: var(--present);
+  border-color: var(--present);
+}
+.tile.revealed.s-absent {
+  background: var(--absent);
+  border-color: var(--absent);
+}
+
+/* ---- Keyboard ---- */
+.keyboard {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0; /* keyboard keeps its size; the board scales instead */
+}
+
+.kb-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.key {
+  flex: 1;
+  min-width: 0;
+  height: clamp(40px, 6vh, 58px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--key-bg);
+  color: var(--key-fg);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden; /* contain the wide "Enter" label so it can't overlap keys */
+  cursor: pointer;
+}
+
+.key.wide {
+  flex: 1.5;
+  font-size: 0.7rem;
+}
+
+.key.s-correct,
+.key.s-present,
+.key.s-absent {
+  color: #fff;
+}
+.key.s-correct {
+  background: var(--correct);
+}
+.key.s-present {
+  background: var(--present);
+}
+.key.s-absent {
+  background: var(--absent);
+}
+
+@media (max-width: 500px) {
+  :root {
+    --tile-size: min(58px, 6.2vh);
+  }
+}
+
+/* ---- Header tabs ---- */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding-bottom: 8px;
+}
+
+.tabs button {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tabs button.active {
+  color: var(--fg);
+  border-bottom-color: var(--correct);
+}
+
+/* ---- Multiplayer lobby ---- */
+.mp-lobby {
+  flex-direction: column;
+}
+
+.lobby-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 320px;
+  padding: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.lobby-card input {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--tile-border-filled);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 1rem;
+}
+
+.code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  text-align: center;
+  width: 100%;
+}
+
+.join-row {
+  display: flex;
+  gap: 8px;
+}
+
+.join-row button {
+  white-space: nowrap;
+}
+
+button.primary {
+  background: var(--correct);
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  padding: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+button.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.lobby-card button:not(.primary) {
+  background: var(--key-bg);
+  color: var(--key-fg);
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.divider {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.error {
+  color: #d33;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ---- Multiplayer room ---- */
+.mp-room {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.room-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--tile-border);
+}
+
+.room-bar .code {
+  letter-spacing: 0.15em;
+}
+
+.room-bar .link {
+  margin-left: auto;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.room-bar .link + .link {
+  margin-left: 0;
+}
+
+.waiting {
+  text-align: center;
+  padding: 16px;
+}
+
+.player-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 16px;
+}
+
+.player-list li {
+  padding: 4px 0;
+}
+
+.muted-text {
+  color: var(--muted);
+}
+
+.race {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Scrollable middle: opponents + own board. Keyboard stays pinned below it. */
+.race-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  padding: 6px;
+  /* Subtle scrollbar in the rare case content still overflows (e.g. 7 letters
+     on a very short window); collapsed opponents keep it from appearing normally. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--tile-border) transparent;
+}
+
+.race-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.race-body::-webkit-scrollbar-thumb {
+  background: var(--tile-border);
+  border-radius: 3px;
+}
+
+/* Opponents: a horizontally scrollable strip of letterless mini-boards. */
+.opp-area {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  justify-content: safe center;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.opp {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  color: inherit;
+  padding: 4px;
+}
+
+.opp.collapsed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.opp.collapsed:hover {
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+}
+
+.opp-progress {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.opp.offline {
+  opacity: 0.45;
+}
+
+.my-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.my-name {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.opp-name {
+  font-size: 0.75rem;
+  text-align: center;
+  margin-bottom: 4px;
+  color: var(--muted);
+}
+
+.opp-name .rank {
+  font-weight: 800;
+  color: var(--fg);
+  margin-right: 4px;
+}
+
+.mini-board {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mini-row {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), 12px);
+  gap: 2px;
+}
+
+.mini-tile {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--tile-border);
+  border-radius: 2px;
+}
+
+.mini-tile.s-correct {
+  background: var(--correct);
+  border-color: var(--correct);
+}
+.mini-tile.s-present {
+  background: var(--present);
+  border-color: var(--present);
+}
+.mini-tile.s-absent {
+  background: var(--absent);
+  border-color: var(--absent);
+}
+
+.result {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.result h2 {
+  margin: 6px 0;
+}
+
+.ranking {
+  text-align: left;
+  display: inline-block;
+  margin: 8px auto;
+}
+
+/* ---- Account / Stats ---- */
+.account {
+  flex-direction: column;
+  overflow-y: auto;
+  align-items: stretch;
+}
+
+.account-card {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.account-card h2,
+.account-card h3 {
+  text-align: center;
+}
+
+.account-card h3 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 18px 0 8px;
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+.profile-name {
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.dist-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+
+.dist-g {
+  width: 14px;
+  font-weight: 700;
+}
+
+.dist-bar {
+  background: var(--correct);
+  color: #fff;
+  text-align: right;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-width: 22px;
+}
+
+.leaderboard {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.leaderboard li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--tile-border);
+}
+
+.lb-rank {
+  font-weight: 800;
+  width: 28px;
+  color: var(--muted);
+}
+
+.lb-name {
+  flex: 1;
+}
+
+.lb-wins {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Enlarged opponent view (tap a mini-board). */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.overlay-inner {
+  background: var(--bg);
+  border: 1px solid var(--tile-border);
+  border-radius: 10px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.opp.large .opp-name {
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+.opp.large .mini-row {
+  grid-template-columns: repeat(var(--cols, 5), 28px);
+  gap: 4px;
+}
+
+.opp.large .mini-tile {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+}

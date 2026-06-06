@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/dist/
+.vite/
+
+# Generated word lists (fetched at build time)
+backend/app/data/allowed.txt
+backend/app/data/allowed_*.txt
+backend/app/data/answers_*.txt
+
+# Env (never commit real secrets; .env.example is the committed template)
+.env
+.env.*
+!.env.example

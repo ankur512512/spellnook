@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+app/data/allowed.txt
+app/data/allowed_*.txt
+app/data/answers_*.txt
