@@ -25,10 +25,35 @@ Your two-branch plan works; to keep promotion clean and avoid drift:
 Pitfalls this avoids: branch drift, messy back-merges, hotfix cherry-pick pain, and
 "worked in staging, different in prod" from separate rebuilds.
 
-## CI
-`.github/workflows/ci.yml`: builds the frontend (tsc strict + vite), runs backend smoke
-tests (auth/stats + multiplayer) against a Postgres service, and validates both Dockerfiles.
-A commented block shows how to publish SHA-tagged multi-arch images for promotion.
+## CI/CD pipeline
+**Branch model:** `staging` (default; local dev + integration) and `main` (production).
+Develop on `staging`, run locally, then open a PR / merge `staging -> main` to ship.
+
+- **`.github/workflows/ci.yml`** (push to staging/main + PRs): frontend build (tsc strict +
+  vite), backend smoke tests (auth/stats + multiplayer) against a Postgres service, Dockerfile build.
+- **`.github/workflows/deploy.yml`** (push to `main`): waits for **manual approval** (the
+  `production` GitHub Environment), then SSHes into the VM and runs `deploy/deploy.sh`
+  (`git reset --hard origin/main` → `docker-compose up -d --build` → health check).
+  We **build on the VM** (native arm64, fast) rather than cross-building in CI under QEMU.
+
+### One-time GitHub setup (repo owner)
+1. **Secrets** (Settings ▸ Secrets and variables ▸ Actions):
+   - `VM_HOST` = `ankur.theworkpc.com`
+   - `VM_USER` = `ubuntu`
+   - `VM_SSH_KEY` = the CI deploy **private key** (its public key is already in the VM's
+     `~/.ssh/authorized_keys`).
+2. **Environment** (Settings ▸ Environments ▸ New ▸ `production`): add yourself under
+   **Required reviewers** — this is the manual approval gate before each prod deploy.
+3. **Default branch** = `staging` (Settings ▸ Branches).
+4. *(Optional)* Protect `main`: require PR + passing CI before merge.
+
+### Day-to-day
+```
+git switch staging && <edit> && docker compose up --build   # develop + test locally
+git push origin staging                                      # CI runs
+# open PR staging -> main, merge  →  deploy.yml waits for your approval  →  deploys to prod
+```
+Manual deploy from the VM is still available: `bash /home/ubuntu/spellnook-git/deploy/deploy.sh`.
 
 
 ## CPU architecture (amd64 + arm64)
