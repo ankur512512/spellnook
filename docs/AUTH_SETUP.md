@@ -12,9 +12,12 @@ development — no domain or HTTPS required.
      (Testing mode needs no verification; only listed test users can sign in.)
 3. **APIs & Services → Credentials → Create credentials → OAuth client ID**:
    - Application type: **Web application**.
-   - **Authorized JavaScript origins:** `http://localhost:5173`
-     (add your prod origin later, e.g. `https://play.spellnook.com`).
+   - **Authorized JavaScript origins:** add BOTH:
+     - `http://localhost:5173` (local dev)
+     - `https://spellnook.ankur.theworkpc.com` (production) — no trailing slash, must be `https`.
    - Authorized redirect URIs: not required for the ID-token (GIS button) flow.
+   - Add each environment's origin here, or GIS errors `The given origin is not allowed
+     for the given client ID` and the button silently won't work.
    - Create → copy the **Client ID** (looks like `xxxxx.apps.googleusercontent.com`).
 
 ## 2. Provide it to the app

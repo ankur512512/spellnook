@@ -248,9 +248,9 @@ body {
   background: transparent;
 }
 
-/* Flip reveal animation applied once a row is scored */
+/* Flip reveal animation applied once a row is scored (slowed for readability) */
 .tile.revealed {
-  animation: flip 0.5s ease forwards;
+  animation: flip 0.85s ease forwards;
 }
 
 @keyframes flip {
@@ -666,8 +666,10 @@ button.primary:disabled {
 /* ---- Account / Stats ---- */
 .account {
   flex-direction: column;
+  align-items: center;
+  justify-content: flex-start; /* top-align (override .main's centering) */
   overflow-y: auto;
-  align-items: stretch;
+  padding: 24px 0;
 }
 
 .account-card {

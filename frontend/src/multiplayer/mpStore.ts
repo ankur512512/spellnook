@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { useAuth } from "../auth/authStore";
 import { API_URL } from "../config";
+import { buzzInvalid, buzzWin } from "../haptics";
 import type { LetterStatus } from "../types";
 
 const API_BASE = API_URL;
@@ -64,6 +65,15 @@ interface MpState {
 }
 
 let msgTimer: ReturnType<typeof setTimeout> | undefined;
+// Connection resilience (module-scoped so reconnects survive store updates).
+let pingTimer: ReturnType<typeof setInterval> | undefined;
+let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+let reconnectAttempts = 0;
+let intentionalClose = false;
+let lastCode = "";
+let lastName = "";
+const PING_MS = 25_000;
+const MAX_RECONNECTS = 10;
 
 function clientId(): string {
   let id = localStorage.getItem(CID_KEY);
@@ -134,8 +144,28 @@ export const useMp = create<MpState>((set, get) => {
   };
 
   const connect = (code: string, name: string) => {
+    intentionalClose = false;
+    clearTimeout(reconnectTimer);
+    lastCode = code;
+    lastName = name;
     set({ connecting: true, error: null });
     const ws = new WebSocket(wsUrl(code, name));
+
+    ws.onopen = () => {
+      set({ connecting: false });
+      reconnectAttempts = 0;
+      // Keepalive so idle connections aren't dropped by proxies / the network.
+      clearInterval(pingTimer);
+      pingTimer = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({ type: "ping" }));
+          } catch {
+            /* ignore */
+          }
+        }
+      }, PING_MS);
+    };
 
     ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
@@ -147,7 +177,7 @@ export const useMp = create<MpState>((set, get) => {
         if (room.round !== get().round) {
           set({ round: room.round, myRows: [], current: "", myKeys: {} });
         }
-        set({ room });
+        set({ room, message: null });
         persist();
       } else if (msg.type === "guess_result") {
         if (msg.valid) {
@@ -155,8 +185,12 @@ export const useMp = create<MpState>((set, get) => {
           const rows = [...myRows, { letters: current, statuses: msg.statuses }];
           set({ myRows: rows, current: "", myKeys: keysFromRows(rows) });
           persist();
-          if (msg.won) flash("You got it! 🎉", 4000);
-          else if (msg.answer) flash(`Answer: ${String(msg.answer).toUpperCase()}`, 5000);
+          if (msg.won) {
+            flash("You got it! 🎉", 4000);
+            buzzWin();
+          } else if (msg.answer) {
+            flash(`Answer: ${String(msg.answer).toUpperCase()}`, 5000);
+          }
         } else {
           flash(
             msg.reason === "not_in_word_list"
@@ -165,16 +199,38 @@ export const useMp = create<MpState>((set, get) => {
                 ? "Not enough letters"
                 : "Can't guess now",
           );
+          buzzInvalid();
         }
       } else if (msg.type === "error") {
         set({ error: msg.reason, connecting: false });
-        if (msg.reason === "room_not_found") localStorage.removeItem(SESSION_KEY);
+        // Unrecoverable: stop auto-reconnect and drop the session.
+        if (msg.reason === "room_not_found" || msg.reason === "room_full" || msg.reason === "in_progress") {
+          intentionalClose = true;
+          localStorage.removeItem(SESSION_KEY);
+        }
       }
     };
 
-    ws.onclose = () => set({ connecting: false, ws: null });
-    ws.onerror = () => set({ error: "connection_error", connecting: false });
-    ws.onopen = () => set({ connecting: false });
+    ws.onerror = () => {
+      /* onclose will handle reconnection */
+    };
+
+    ws.onclose = () => {
+      clearInterval(pingTimer);
+      set({ connecting: false, ws: null });
+      if (intentionalClose) return;
+      const sess = loadSession();
+      const rejoinCode = sess?.code || lastCode;
+      if (!rejoinCode || reconnectAttempts >= MAX_RECONNECTS) {
+        if (reconnectAttempts >= MAX_RECONNECTS) set({ error: "connection_error" });
+        return;
+      }
+      reconnectAttempts += 1;
+      const delay = Math.min(1000 * 2 ** (reconnectAttempts - 1), 10_000);
+      set({ message: "Reconnecting…" });
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => connect(rejoinCode, sess?.name || lastName), delay);
+    };
 
     set({ ws });
   };
@@ -230,6 +286,10 @@ export const useMp = create<MpState>((set, get) => {
     },
 
     leave: () => {
+      intentionalClose = true;
+      clearInterval(pingTimer);
+      clearTimeout(reconnectTimer);
+      reconnectAttempts = 0;
       const ws = get().ws;
       try {
         ws?.send(JSON.stringify({ type: "leave" }));

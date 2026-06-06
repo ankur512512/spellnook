@@ -32,7 +32,7 @@ export function MyBoard() {
                   letter={letter}
                   status={status}
                   revealed={!!statuses}
-                  revealDelay={statuses ? c * 200 : 0}
+                  revealDelay={statuses ? c * 380 : 0}
                 />
               );
             })}
