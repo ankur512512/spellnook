@@ -1,0 +1,7 @@
+# Caddy edge: terminates TLS (automatic Let's Encrypt) and reverse-proxies to the
+# frontend container, which serves the SPA and proxies /api + /ws to the backend.
+# Domain comes from the SPELLNOOK_DOMAIN env var (set in docker-compose.vm.yml).
+{$SPELLNOOK_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy frontend:80
+}

@@ -44,8 +44,9 @@ services:
       dockerfile: Dockerfile.dev
     environment:
       - VITE_API_TARGET=http://backend:8000
-      # Set to your Google OAuth Client ID to enable the sign-in button:
-      - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID:-}
+      # One var feeds both backend + frontend. Set GOOGLE_CLIENT_ID in ./.env
+      # to enable Google sign-in locally (see docs/AUTH_SETUP.md).
+      - VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     volumes:
       - ./frontend:/app
       - /app/node_modules

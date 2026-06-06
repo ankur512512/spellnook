@@ -14,7 +14,8 @@ backend/app/data/allowed.txt
 backend/app/data/allowed_*.txt
 backend/app/data/answers_*.txt
 
-# Env (never commit real secrets; .env.example is the committed template)
+# Env (never commit real secrets; *.example templates ARE committed)
 .env
 .env.*
 !.env.example
+!.env.vm.example

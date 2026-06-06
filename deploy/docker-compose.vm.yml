@@ -1,0 +1,63 @@
+# VM deployment: Caddy (TLS on 80/443) -> frontend (SPA + /api,/ws proxy) -> backend -> Postgres.
+# Self-contained; does not depend on k3s/Cilium. Run from the deploy/ dir:
+#   docker compose -f docker-compose.vm.yml --env-file .env up -d --build
+name: spellnook
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spellnook}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-spellnook}
+    volumes:
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spellnook}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ../backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: prod
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-spellnook}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-spellnook}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      SPELLNOOK_JWT_SECRET: ${SPELLNOOK_JWT_SECRET:?set SPELLNOOK_JWT_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ../frontend
+    restart: unless-stopped
+    environment:
+      # Same-origin behind Caddy/nginx, so apiUrl stays empty (relative URLs).
+      SPELLNOOK_API_URL: ""
+      SPELLNOOK_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    depends_on:
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SPELLNOOK_DOMAIN: ${SPELLNOOK_DOMAIN:-spellnook.ankur.theworkpc.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:
