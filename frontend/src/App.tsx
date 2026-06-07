@@ -1,37 +1,51 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "./useTheme";
 import { useAuth } from "./auth/authStore";
+import Home from "./Home";
 import Solo from "./Solo";
 import Multiplayer from "./multiplayer/Multiplayer";
 import Account from "./auth/Account";
+import { HowToPlay } from "./HowToPlay";
 
-type View = "solo" | "mp" | "account";
+type View = "home" | "solo" | "mp" | "account";
+
+const HOWTO_SEEN = "spellnook-seen-howto";
 
 export default function App() {
   const { theme, toggle } = useTheme();
-  const [view, setView] = useState<View>("solo");
   const { user, init } = useAuth();
+  const [view, setView] = useState<View>("home");
+  const [showHowTo, setShowHowTo] = useState(false);
 
   useEffect(() => {
     init().catch(() => {});
+    // First-time visitors get the How-to-play automatically.
+    if (!localStorage.getItem(HOWTO_SEEN)) {
+      setShowHowTo(true);
+      localStorage.setItem(HOWTO_SEEN, "1");
+    }
   }, [init]);
+
+  const tab = (v: View, label: string) => (
+    <button className={view === v ? "active" : ""} onClick={() => setView(v)}>
+      {label}
+    </button>
+  );
 
   return (
     <div className="app">
       <header className="header">
         <h1>Spellnook</h1>
         <nav className="tabs">
-          <button className={view === "solo" ? "active" : ""} onClick={() => setView("solo")}>
-            Daily
-          </button>
-          <button className={view === "mp" ? "active" : ""} onClick={() => setView("mp")}>
-            Multiplayer
-          </button>
-          <button className={view === "account" ? "active" : ""} onClick={() => setView("account")}>
-            Stats
-          </button>
+          {tab("home", "Home")}
+          {tab("solo", "Daily")}
+          {tab("mp", "Multiplayer")}
+          {tab("account", "Stats")}
         </nav>
         <div className="header-right">
+          <button className="theme-toggle" onClick={() => setShowHowTo(true)} title="How to play" aria-label="How to play">
+            ❓
+          </button>
           {user?.picture && (
             <img
               src={user.picture}
@@ -53,7 +67,17 @@ export default function App() {
         </div>
       </header>
 
-      {view === "solo" ? <Solo /> : view === "mp" ? <Multiplayer /> : <Account />}
+      {view === "home" ? (
+        <Home onPlay={() => setView("solo")} onMultiplayer={() => setView("mp")} onHowTo={() => setShowHowTo(true)} />
+      ) : view === "solo" ? (
+        <Solo />
+      ) : view === "mp" ? (
+        <Multiplayer />
+      ) : (
+        <Account />
+      )}
+
+      {showHowTo && <HowToPlay onClose={() => setShowHowTo(false)} />}
     </div>
   );
 }
