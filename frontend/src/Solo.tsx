@@ -5,7 +5,7 @@ import { Keyboard } from "./components/Keyboard";
 
 // Single-player daily game.
 export default function Solo() {
-  const { phase, message, availableLengths, length, setLength, init, addLetter, removeLetter, submit } =
+  const { phase, message, answer, availableLengths, length, setLength, init, addLetter, removeLetter, submit } =
     useGame();
 
   useEffect(() => {
@@ -48,11 +48,19 @@ export default function Solo() {
           <>
             {message && <div className="toast">{message}</div>}
             <Board />
+            {(phase === "won" || phase === "lost") && (
+              <p className="done-note">
+                {phase === "won"
+                  ? "Solved! "
+                  : `The word was ${(answer ?? "").toUpperCase()}. `}
+                Come back tomorrow for a new {length}-letter puzzle.
+              </p>
+            )}
           </>
         )}
       </main>
 
-      <Keyboard />
+      {phase === "playing" && <Keyboard />}
     </>
   );
 }

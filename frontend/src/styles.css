@@ -149,6 +149,14 @@ body {
   opacity: 0.6;
 }
 
+.done-note {
+  margin: 14px 16px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  max-width: 320px;
+}
+
 /* ---- Toast ---- */
 .toast {
   position: absolute;
@@ -189,6 +197,8 @@ body {
   display: grid;
   grid-template-columns: repeat(var(--cols, 5), 1fr);
   gap: 5px;
+  /* 3D depth so the reveal reads as a real flip, not a flat squash. */
+  perspective: 900px;
 }
 
 .row.shake {
@@ -226,6 +236,8 @@ body {
   text-transform: uppercase;
   border: 2px solid var(--tile-border);
   user-select: none;
+  will-change: transform;
+  transform-style: preserve-3d;
 }
 
 .tile.filled {
@@ -248,20 +260,23 @@ body {
   background: transparent;
 }
 
-/* Flip reveal animation applied once a row is scored (slowed for readability) */
+/* Flip reveal animation applied once a row is scored (slowed + eased for smoothness) */
 .tile.revealed {
-  animation: flip 0.85s ease forwards;
+  animation: flip 0.8s cubic-bezier(0.45, 0, 0.25, 1) both;
 }
 
 @keyframes flip {
   0% {
-    transform: rotateX(0);
+    transform: rotateX(0deg);
   }
-  50% {
+  45% {
+    transform: rotateX(-90deg);
+  }
+  55% {
     transform: rotateX(-90deg);
   }
   100% {
-    transform: rotateX(0);
+    transform: rotateX(0deg);
   }
 }
 
@@ -670,6 +685,12 @@ button.primary:disabled {
   justify-content: flex-start; /* top-align (override .main's centering) */
   overflow-y: auto;
   padding: 24px 0;
+}
+
+/* Signed-out sign-in prompt reads better as a centered panel near the top. */
+.account.account-centered {
+  justify-content: flex-start;
+  padding-top: 8vh;
 }
 
 .account-card {

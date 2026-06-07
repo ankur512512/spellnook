@@ -74,6 +74,19 @@ Living checklist. Update as we go so we keep context cheap across sessions.
 - [x] Verified: prod compose serves `:8080`, health `environment:prod`, `/config.js` runtime-injected.
 - [ ] (Follow-up) publish SHA-tagged multi-arch images + actual deploy step to the VM.
 
+## Phase 8 — UX + monetization
+- [x] Daily replay-lock: each day's game persisted per `gameId` (date+length) in localStorage —
+      finished puzzle stays finished ("come back tomorrow"); in-progress survives refresh. (`store.ts`)
+- [x] Mobile haptics (invalid + win); slower/smoother flip reveal (3D perspective + eased).
+- [ ] **Multiplayer free-games limit (proposed):** 5 games/day for signed-in AND guest users; beyond
+      that requires payment (gateway later). Design:
+  - Identity: signed-in → `user_id`; guest → the existing localStorage `cid` (sent on WS connect).
+  - Count server-side per identity per day (new table `mp_plays` or reuse `game_results mode=multi`
+    with `puzzle_date`); enforce on room create/start; return `limit_reached` → frontend shows paywall stub.
+  - Word variety: room answers already random per game; ensure no repeat within a user's daily 5.
+  - Guests are weakly identified (clearable localStorage) — acceptable pre-payment; real enforcement
+    comes with accounts/payment.
+
 ## 🚩 Launch gate (before going public)
 - [ ] Own visual identity (rebrand off the placeholder Wordle palette/fonts)
 - [ ] Trademark (USPTO/EUIPO) + domain clearance for "Spellnook"

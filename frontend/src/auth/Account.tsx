@@ -26,7 +26,7 @@ export default function Account() {
 
   if (!user) {
     return (
-      <main className="main account">
+      <main className="main account account-centered">
         <div className="account-card">
           <h2>Sign in</h2>
           <p className="muted-text">Track your stats, streaks, and climb the leaderboard.</p>
