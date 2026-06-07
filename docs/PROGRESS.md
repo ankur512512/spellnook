@@ -88,9 +88,13 @@ Living checklist. Update as we go so we keep context cheap across sessions.
     comes with accounts/payment.
 
 ## 🚩 Launch gate (before going public)
-- [ ] Own visual identity (rebrand off the placeholder Wordle palette/fonts)
-- [ ] Trademark (USPTO/EUIPO) + domain clearance for "Spellnook"
-- [ ] Confirm no copied NYT assets / word lists
+- [x] Own visual identity: distinct blue/amber/slate palette (colorblind-friendlier) + rounded tiles.
+- [x] Privacy policy page (`frontend/public/privacy.html` → /privacy.html) + Home footer link.
+- [x] Light abuse hardening: global `MAX_ROOMS` cap (503 when full).
+- [ ] **(User)** Publish the Google OAuth consent screen (Testing→Production) so the public can
+      sign in; set Homepage + Privacy URL (`/privacy.html`). Update the privacy contact email.
+- [ ] **(User)** Trademark (USPTO/EUIPO) + domain clearance for "Spellnook".
+- [ ] **(User)** Confirm no copied NYT assets / word lists (we use open word lists + own palette).
 - [ ] Accounts + persisted stats (Postgres)
 - [ ] Redis for live game/daily word
 - [ ] Custom animations / themes

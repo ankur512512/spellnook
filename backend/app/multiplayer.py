@@ -27,6 +27,7 @@ from . import game, words
 CODE_LEN = 4
 DEFAULT_LENGTH = 5
 MAX_PLAYERS = 6
+MAX_ROOMS = 2000  # global cap so room creation can't exhaust memory
 GRACE_SECONDS = 60  # keep an all-disconnected room alive this long (for refresh)
 
 
@@ -177,7 +178,9 @@ class RoomManager:
     def __init__(self) -> None:
         self.rooms: dict[str, Room] = {}
 
-    def create(self) -> Room:
+    def create(self) -> Room | None:
+        if len(self.rooms) >= MAX_ROOMS:
+            return None  # at capacity
         code = _gen_code()
         while code in self.rooms:
             code = _gen_code()

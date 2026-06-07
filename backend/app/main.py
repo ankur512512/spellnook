@@ -224,6 +224,8 @@ async def _record_room_results(room: multiplayer.Room) -> None:
 @app.post("/api/room")
 def create_room():
     room = multiplayer.manager.create()
+    if room is None:
+        raise HTTPException(status_code=503, detail="rooms_at_capacity")
     return {"code": room.code}
 
 
