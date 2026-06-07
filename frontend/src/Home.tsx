@@ -45,6 +45,12 @@ export default function Home({ onPlay, onMultiplayer, onHowTo }: Props) {
             <GoogleButton />
           </div>
         )}
+
+        <footer className="home-footer">
+          <a href="/privacy.html" target="_blank" rel="noreferrer">
+            Privacy
+          </a>
+        </footer>
       </div>
     </main>
   );

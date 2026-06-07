@@ -7,9 +7,11 @@
   --tile-border-filled: #565758;
   --key-bg: #818384;
   --key-fg: #ffffff;
-  --correct: #538d4e;
-  --present: #b59f3b;
-  --absent: #3a3a3c;
+  /* Spellnook palette — blue/amber/slate (distinct from Wordle, colorblind-friendlier). */
+  --correct: #3a82c4;
+  --present: #cf8b34;
+  --absent: #3a3d44;
+  --accent: #3a82c4;
   /* Scales down on short viewports so the board + keyboard fit without scroll. */
   --tile-size: min(62px, 6.4vh);
 }
@@ -22,9 +24,10 @@
   --tile-border-filled: #878a8c;
   --key-bg: #d3d6da;
   --key-fg: #1a1a1b;
-  --correct: #6aaa64;
-  --present: #c9b458;
-  --absent: #787c7e;
+  --correct: #2f78bd;
+  --present: #c5852f;
+  --absent: #8a8d94;
+  --accent: #2f78bd;
 }
 
 * {
@@ -235,6 +238,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   border: 2px solid var(--tile-border);
+  border-radius: 8px;
   user-select: none;
   will-change: transform;
   transform-style: preserve-3d;
@@ -869,6 +873,16 @@ button.link {
 
 .signin-hint {
   text-align: center;
+}
+
+.home-footer {
+  margin-top: 18px;
+  font-size: 0.8rem;
+}
+
+.home-footer a {
+  color: var(--muted);
+  text-decoration: none;
 }
 
 /* ---- How-to-play modal ---- */

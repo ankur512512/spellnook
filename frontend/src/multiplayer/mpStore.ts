@@ -272,7 +272,7 @@ export const useMp = create<MpState>((set, get) => {
       set({ error: null });
       const res = await fetch(`${API_BASE}/api/room`, { method: "POST" });
       if (!res.ok) {
-        set({ error: "create_failed" });
+        set({ error: res.status === 503 ? "rooms_full" : "create_failed" });
         return;
       }
       const { code } = await res.json();

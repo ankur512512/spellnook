@@ -225,6 +225,8 @@ function errorText(reason: string): string {
       return "That game already started — wait for the next round.";
     case "create_failed":
       return "Couldn't create a room. Is the server running?";
+    case "rooms_full":
+      return "Servers are busy right now — try again in a moment.";
     case "connection_error":
       return "Connection error.";
     default:
