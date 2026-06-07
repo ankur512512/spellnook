@@ -21,6 +21,7 @@ interface GameState {
   message: string | null;
   shake: boolean;
   answer: string | null;
+  completed: boolean; // today's puzzle (this length) already finished
 
   init: () => Promise<void>;
   setLength: (length: number) => Promise<void>;
@@ -43,6 +44,60 @@ const freshBoard = {
 let messageTimer: ReturnType<typeof setTimeout> | undefined;
 let startedAt = Date.now();
 
+// Persist each day's game per gameId (date+length) so a finished puzzle can't be
+// replayed and an in-progress one survives a refresh.
+const soloKey = (gameId: string) => `spellnook-solo-${gameId}`;
+
+interface SoloSnapshot {
+  guesses: string[];
+  statuses: LetterStatus[][];
+  keyStatuses: Record<string, LetterStatus>;
+  phase: Phase;
+  answer: string | null;
+}
+
+function loadSolo(gameId: string): SoloSnapshot | null {
+  try {
+    const raw = localStorage.getItem(soloKey(gameId));
+    return raw ? (JSON.parse(raw) as SoloSnapshot) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSolo(gameId: string, snap: SoloSnapshot) {
+  try {
+    localStorage.setItem(soloKey(gameId), JSON.stringify(snap));
+  } catch {
+    /* ignore */
+  }
+}
+
+// Build the state for a freshly loaded daily — restoring saved progress if any.
+function restoreOrFresh(game: DailyGame) {
+  startedAt = Date.now();
+  const base = {
+    game,
+    availableLengths: game.availableLengths,
+    length: game.wordLength,
+  };
+  const saved = loadSolo(game.gameId);
+  if (saved && Array.isArray(saved.guesses)) {
+    return {
+      ...base,
+      guesses: saved.guesses,
+      statuses: saved.statuses ?? [],
+      keyStatuses: saved.keyStatuses ?? {},
+      phase: (saved.phase ?? "playing") as Phase,
+      answer: saved.answer ?? null,
+      current: "",
+      message: null,
+      completed: saved.phase === "won" || saved.phase === "lost",
+    };
+  }
+  return { ...base, ...freshBoard, completed: false };
+}
+
 export const useGame = create<GameState>((set, get) => ({
   game: null,
   availableLengths: [],
@@ -55,29 +110,18 @@ export const useGame = create<GameState>((set, get) => ({
   message: null,
   shake: false,
   answer: null,
+  completed: false,
 
   init: async () => {
     const game = await fetchDailyGame();
-    startedAt = Date.now();
-    set({
-      game,
-      availableLengths: game.availableLengths,
-      length: game.wordLength,
-      ...freshBoard,
-    });
+    set(restoreOrFresh(game));
   },
 
   setLength: async (length) => {
     if (length === get().length) return;
     set({ phase: "loading" });
     const game = await fetchDailyGame(length);
-    startedAt = Date.now();
-    set({
-      game,
-      availableLengths: game.availableLengths,
-      length: game.wordLength,
-      ...freshBoard,
-    });
+    set(restoreOrFresh(game));
   },
 
   addLetter: (ch) => {
@@ -133,6 +177,16 @@ export const useGame = create<GameState>((set, get) => ({
       guesses: nextGuesses,
       statuses: nextStatuses,
       current: "",
+      keyStatuses: nextKeys,
+      phase: phaseNext,
+      answer: result.answer ?? null,
+      completed: phaseNext !== "playing",
+    });
+
+    // Persist progress (and completion) so the puzzle isn't replayable.
+    saveSolo(game.gameId, {
+      guesses: nextGuesses,
+      statuses: nextStatuses,
       keyStatuses: nextKeys,
       phase: phaseNext,
       answer: result.answer ?? null,

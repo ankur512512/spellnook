@@ -14,6 +14,7 @@ after, by who got furthest.
 from __future__ import annotations
 
 import asyncio
+import os
 import random
 import string
 import time
@@ -96,7 +97,9 @@ class Room:
             return False
         self.length = length
         self.max_guesses = game.max_guesses(length)
-        self.answer = random.choice(pool)
+        # Test-only override (unset in prod) so smoke tests are deterministic.
+        forced = os.environ.get("SPELLNOOK_TEST_MP_ANSWER")
+        self.answer = forced.lower() if forced and len(forced) == length else random.choice(pool)
         self.phase = "playing"
         self.round += 1
         self.recorded = False

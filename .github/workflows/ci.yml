@@ -34,6 +34,9 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://spellnook:spellnook@localhost:5432/spellnook
       PYTHONPATH: .
+      # Force a deterministic multiplayer answer (not one of ws_smoke's guesses)
+      # so the smoke test can't randomly hit an early win. Test-only.
+      SPELLNOOK_TEST_MP_ANSWER: crane
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
