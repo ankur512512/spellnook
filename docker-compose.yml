@@ -42,6 +42,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
+    # Install on startup so new deps in package.json are picked up even though
+    # node_modules lives in a persisted volume (otherwise added deps go missing).
+    command: sh -c "npm install && npm run dev"
     environment:
       - VITE_API_TARGET=http://backend:8000
       # One var feeds both backend + frontend. Set GOOGLE_CLIENT_ID in ./.env
