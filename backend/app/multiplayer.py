@@ -113,7 +113,15 @@ class Room:
         return bool(self.players) and all(p.finished for p in self.players.values())
 
     def maybe_finish(self) -> None:
-        if self.phase == "playing" and self.all_finished():
+        if self.phase != "playing":
+            return
+        someone_won = any(p.won for p in self.players.values())
+        if someone_won or self.all_finished():
+            # First win ends the round for everyone; stragglers are marked as lost.
+            for p in self.players.values():
+                if not p.finished:
+                    p.finished = True
+                    p.won = False
             self.phase = "finished"
             self._rank()
 

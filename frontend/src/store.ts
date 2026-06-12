@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { fetchDailyGame, submitGuess } from "./api";
 import { useAuth } from "./auth/authStore";
-import { buzzInvalid, buzzWin } from "./haptics";
+import { celebrateWin } from "./effects";
+import { buzzInvalid } from "./haptics";
 import type { DailyGame, LetterStatus } from "./types";
 
 type Phase = "loading" | "playing" | "won" | "lost";
@@ -194,7 +195,7 @@ export const useGame = create<GameState>((set, get) => ({
 
     if (phaseNext === "won") {
       flash(set, pickWinWord(nextGuesses.length), 4000);
-      buzzWin();
+      celebrateWin();
     } else if (phaseNext === "lost") {
       flash(set, (result.answer ?? "").toUpperCase(), 6000);
     }

@@ -14,3 +14,6 @@ export const buzzInvalid = () => vibrate([55, 35, 55]);
 
 // Celebratory pattern — a win (daily or multiplayer).
 export const buzzWin = () => vibrate([60, 50, 90, 50, 180]);
+
+// Soft "sad" pattern — losing a multiplayer round.
+export const buzzLose = () => vibrate([130, 70, 130]);
