@@ -160,6 +160,18 @@ body {
   max-width: 320px;
 }
 
+.win-note {
+  color: var(--fg);
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.result-msg {
+  margin: 2px 16px 8px;
+  font-size: 0.95rem;
+  max-width: 340px;
+}
+
 /* ---- Toast ---- */
 .toast {
   position: absolute;

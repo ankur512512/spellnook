@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { useGame } from "./store";
+import { useAuth } from "./auth/authStore";
+import { funnyWin } from "./messages";
 import { Board } from "./components/Board";
 import { Keyboard } from "./components/Keyboard";
 
@@ -7,6 +9,8 @@ import { Keyboard } from "./components/Keyboard";
 export default function Solo() {
   const { phase, message, answer, availableLengths, length, setLength, init, addLetter, removeLetter, submit } =
     useGame();
+  const gameId = useGame((s) => s.game?.gameId) ?? "";
+  const name = useAuth((s) => s.user?.name);
 
   useEffect(() => {
     init().catch(() => {});
@@ -48,12 +52,17 @@ export default function Solo() {
           <>
             {message && <div className="toast">{message}</div>}
             <Board />
-            {(phase === "won" || phase === "lost") && (
+            {phase === "won" && (
+              <p className="done-note win-note">
+                {funnyWin(name, gameId)}
+                <br />
+                <span className="muted-text">New {length}-letter puzzle tomorrow.</span>
+              </p>
+            )}
+            {phase === "lost" && (
               <p className="done-note">
-                {phase === "won"
-                  ? "Solved! "
-                  : `The word was ${(answer ?? "").toUpperCase()}. `}
-                Come back tomorrow for a new {length}-letter puzzle.
+                The word was {(answer ?? "").toUpperCase()}. Come back tomorrow for a new{" "}
+                {length}-letter puzzle.
               </p>
             )}
           </>
