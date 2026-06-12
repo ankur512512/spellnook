@@ -13,7 +13,7 @@ function seededIndex(seed: string, len: number): number {
 const WIN_TIERS: string[][] = [
   // 1 guess — absurd praise
   [
-    "a ONE-guess miracle — are you reading the answer’s mind?! 🤯👑",
+    "a ONE-guess miracle — are you reading my mind?! 🤯👑",
     "first try?! certified word psychic. 🔮👑",
   ],
   // 2 guesses
