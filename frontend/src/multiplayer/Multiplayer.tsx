@@ -146,6 +146,26 @@ function RoomView() {
           {message && <div className="toast">{message}</div>}
 
           <div className="race-body">
+            {opponents.length > 0 && (
+              <div className="opp-area">
+                {opponents.map((p) => (
+                  <OpponentBoard
+                    key={p.id}
+                    player={p}
+                    length={room.length}
+                    maxGuesses={room.maxGuesses}
+                    collapsed
+                    onClick={() => setFocused(p.id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="my-area">
+              <div className="my-name">{me?.name ?? "You"} (you)</div>
+              <MyBoard />
+            </div>
+
             {room.phase === "finished" && (
               <div className={`result ${me?.won ? "won" : "lost"}`}>
                 <h2>
@@ -186,26 +206,6 @@ function RoomView() {
                 )}
               </div>
             )}
-
-            {opponents.length > 0 && (
-              <div className="opp-area">
-                {opponents.map((p) => (
-                  <OpponentBoard
-                    key={p.id}
-                    player={p}
-                    length={room.length}
-                    maxGuesses={room.maxGuesses}
-                    collapsed
-                    onClick={() => setFocused(p.id)}
-                  />
-                ))}
-              </div>
-            )}
-
-            <div className="my-area">
-              <div className="my-name">{me?.name ?? "You"} (you)</div>
-              <MyBoard />
-            </div>
           </div>
 
           {room.phase === "playing" && (

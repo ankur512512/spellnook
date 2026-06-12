@@ -704,6 +704,14 @@ button.primary:disabled {
   margin: 8px auto;
 }
 
+/* Keep the action (Play again / waiting text) on its own line below the ranking. */
+.result button.primary,
+.result .muted-text {
+  display: block;
+  width: fit-content;
+  margin: 14px auto 0;
+}
+
 /* ---- Account / Stats ---- */
 .account {
   flex-direction: column;
