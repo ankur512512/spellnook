@@ -10,6 +10,7 @@ export default function Solo() {
   const { phase, message, answer, availableLengths, length, setLength, init, addLetter, removeLetter, submit } =
     useGame();
   const gameId = useGame((s) => s.game?.gameId) ?? "";
+  const guessCount = useGame((s) => s.guesses.length);
   const name = useAuth((s) => s.user?.name);
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function Solo() {
             <Board />
             {phase === "won" && (
               <p className="done-note win-note">
-                {funnyWin(name, gameId)}
+                {funnyWin(name, guessCount, gameId)}
                 <br />
                 <span className="muted-text">New {length}-letter puzzle tomorrow.</span>
               </p>

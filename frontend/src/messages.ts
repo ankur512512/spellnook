@@ -7,13 +7,25 @@ function seededIndex(seed: string, len: number): number {
   return Math.abs(h) % len;
 }
 
-const WIN_LINES = [
-  "Nailed it — your brain’s basically a dictionary. 🎉",
-  "That was chef’s-kiss. Spelling-bee champ vibes. 🏆",
-  "Too easy for you? Show-off. 🔥",
-  "Big-brain energy. Certified word wizard. 🧠",
-  "Solved it like a legend — the letters never stood a chance. ✨",
-  "Boom. Word demolished. 🪄",
+// Praise scales with how few guesses it took: index 0 = solved in 1 guess (max
+// hype) … later indexes = more guesses (cooler praise). Bodies are lowercase so
+// they read after "Congrats <name>, ..." or "Congrats! ..." (then capitalized).
+const WIN_TIERS: string[][] = [
+  // 1 guess — absurd praise
+  [
+    "a ONE-guess miracle — are you reading the answer’s mind?! 🤯👑",
+    "first try?! certified word psychic. 🔮👑",
+  ],
+  // 2 guesses
+  ["two guesses — absolutely elite. 🏆", "solved in two. big-brain energy. 🧠"],
+  // 3 guesses
+  ["three guesses — smooth operator. 😎", "a tidy three-guess win. classy. ✨"],
+  // 4 guesses
+  ["four guesses — solid work. 👏", "got there in four, nicely done. 🙂"],
+  // 5 guesses
+  ["five guesses — cut it a little close! 😅", "five tries… but a win’s a win. 👍"],
+  // 6+ guesses — last-gasp
+  ["phew — a last-gasp win! 😮‍💨", "right at the buzzer… that was sweaty. 😅"],
 ];
 
 const LOSE_LINES = [
@@ -24,11 +36,13 @@ const LOSE_LINES = [
   "{w} wins! The word gods smiled on them today. 🙃",
 ];
 
-// Funny congratulations. Mentions the name if given, otherwise skips it.
-export function funnyWin(name: string | undefined, seed: string): string {
-  const line = WIN_LINES[seededIndex(seed, WIN_LINES.length)];
-  if (!name) return line;
-  return `${name}, ${line.charAt(0).toLowerCase()}${line.slice(1)}`;
+// Funny congratulations, scaled by guess count. Addresses the player by name if
+// given ("Congrats Ankur, two guesses — elite."), else a generic "Congrats! ...".
+export function funnyWin(name: string | undefined, guesses: number, seed: string): string {
+  const tier = WIN_TIERS[Math.min(Math.max(guesses, 1), WIN_TIERS.length) - 1];
+  const body = tier[seededIndex(seed, tier.length)];
+  if (name) return `Congrats ${name}, ${body}`;
+  return `Congrats! ${body.charAt(0).toUpperCase()}${body.slice(1)}`;
 }
 
 // Nudge for players who lost a multiplayer round.

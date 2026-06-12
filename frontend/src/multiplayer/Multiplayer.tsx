@@ -157,7 +157,7 @@ function RoomView() {
                 </h2>
                 <p className="result-msg">
                   {me?.won
-                    ? funnyWin(me.name, `${room.code}:${room.round}`)
+                    ? funnyWin(me.name, me.guessCount, `${room.code}:${room.round}`)
                     : winnerName
                       ? funnyLose(winnerName, `${room.code}:${room.round}`)
                       : "Nobody cracked it — the word wins! 🤐"}
