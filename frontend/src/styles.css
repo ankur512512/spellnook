@@ -670,10 +670,19 @@ button.primary:disabled {
 .result {
   text-align: center;
   margin-bottom: 8px;
+  animation: fade-in 0.3s ease;
 }
 
 .result h2 {
   margin: 6px 0;
+}
+
+.result.won h2 {
+  color: var(--correct);
+}
+
+.result.lost h2 {
+  color: var(--muted);
 }
 
 .ranking {
@@ -887,23 +896,35 @@ button.link {
 
 /* ---- How-to-play modal ---- */
 .howto {
-  max-width: 340px;
+  max-width: 320px;
+  max-height: 85vh;
+  overflow-y: auto;
   text-align: left;
   align-items: stretch;
+  gap: 8px; /* uniform spacing (overrides .overlay-inner's larger gap) */
+}
+
+/* Reset default margins so spacing is the flex gap only — no big uneven gaps. */
+.howto > * {
+  margin: 0;
 }
 
 .howto h2 {
   text-align: center;
-  margin-top: 0;
+  font-size: 1.3rem;
+}
+
+.howto p {
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .howto-examples {
   list-style: none;
   padding: 0;
-  margin: 10px 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .ex-row {

@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { useAuth } from "../auth/authStore";
 import { API_URL } from "../config";
-import { buzzInvalid, buzzWin } from "../haptics";
+import { celebrateWin, loseFeedback } from "../effects";
+import { buzzInvalid } from "../haptics";
 import type { LetterStatus } from "../types";
 
 const API_BASE = API_URL;
@@ -173,12 +174,19 @@ export const useMp = create<MpState>((set, get) => {
         set({ you: msg.you });
       } else if (msg.type === "state") {
         const room: MpRoom = msg.room;
+        const prevPhase = get().room?.phase;
         // Reset my local board only on a genuinely new round (not on reconnect).
         if (room.round !== get().round) {
           set({ round: room.round, myRows: [], current: "", myKeys: {} });
         }
         set({ room, message: null });
         persist();
+        // Round just ended: losers get the sad feedback (the winner already
+        // celebrated on their winning guess_result).
+        if (prevPhase === "playing" && room.phase === "finished") {
+          const me = room.players.find((p) => p.id === get().you);
+          if (me && !me.won) loseFeedback();
+        }
       } else if (msg.type === "guess_result") {
         if (msg.valid) {
           const { current, myRows } = get();
@@ -187,7 +195,7 @@ export const useMp = create<MpState>((set, get) => {
           persist();
           if (msg.won) {
             flash("You got it! 🎉", 4000);
-            buzzWin();
+            celebrateWin();
           } else if (msg.answer) {
             flash(`Answer: ${String(msg.answer).toUpperCase()}`, 5000);
           }

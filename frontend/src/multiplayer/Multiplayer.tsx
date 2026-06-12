@@ -83,6 +83,7 @@ function RoomView() {
   if (!room) return null;
   const isHost = you === room.hostId;
   const me = room.players.find((p) => p.id === you);
+  const winnerName = room.players.find((p) => p.won)?.name;
   const opponents = room.players.filter((p) => p.id !== you);
   const focusedPlayer = opponents.find((p) => p.id === focused) ?? null;
 
@@ -145,8 +146,14 @@ function RoomView() {
 
           <div className="race-body">
             {room.phase === "finished" && (
-              <div className="result">
-                <h2>{me?.won ? "You won! 🏆" : "Round over"}</h2>
+              <div className={`result ${me?.won ? "won" : "lost"}`}>
+                <h2>
+                  {me?.won
+                    ? "You won! 🎉"
+                    : winnerName
+                      ? `${winnerName} won 😔`
+                      : "Round over — nobody solved it"}
+                </h2>
                 {room.answer && (
                   <p>
                     Answer: <strong>{room.answer.toUpperCase()}</strong>
@@ -162,10 +169,12 @@ function RoomView() {
                       </li>
                     ))}
                 </ol>
-                {isHost && (
+                {isHost ? (
                   <button className="primary" onClick={() => start(room.length)}>
                     Play again
                   </button>
+                ) : (
+                  <p className="muted-text">Waiting for the host to start another round…</p>
                 )}
               </div>
             )}
