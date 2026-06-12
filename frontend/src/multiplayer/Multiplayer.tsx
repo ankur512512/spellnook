@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { KeyboardView } from "../components/KeyboardView";
+import { funnyLose, funnyWin } from "../messages";
 import { useMp } from "./mpStore";
 import { MyBoard } from "./MyBoard";
 import { OpponentBoard } from "./OpponentBoard";
@@ -154,6 +155,13 @@ function RoomView() {
                       ? `${winnerName} won 😔`
                       : "Round over — nobody solved it"}
                 </h2>
+                <p className="result-msg">
+                  {me?.won
+                    ? funnyWin(me.name, me.guessCount, `${room.code}:${room.round}`)
+                    : winnerName
+                      ? funnyLose(winnerName, `${room.code}:${room.round}`)
+                      : "Nobody cracked it — the word wins! 🤐"}
+                </p>
                 {room.answer && (
                   <p>
                     Answer: <strong>{room.answer.toUpperCase()}</strong>
