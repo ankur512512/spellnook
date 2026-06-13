@@ -1,13 +1,34 @@
 """Stats + leaderboard queries over GameResult."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import GameResult, User
+
+
+async def mp_games_today(session: AsyncSession, user_id: str, tz_offset_minutes: int = 0) -> int:
+    """Count a user's multiplayer games played so far today (all lengths).
+
+    The "day" resets at the player's LOCAL midnight. tz_offset_minutes is the
+    browser's Date.getTimezoneOffset() (UTC - local, in minutes; e.g. IST = -330).
+    """
+    off = max(-1440, min(1440, int(tz_offset_minutes)))  # clamp bad/spoofed values
+    now = datetime.now(timezone.utc)
+    local_now = now - timedelta(minutes=off)  # wall-clock in the player's zone
+    local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start = local_midnight + timedelta(minutes=off)  # that local midnight as a UTC instant
+    n = await session.scalar(
+        select(func.count(GameResult.id)).where(
+            GameResult.user_id == user_id,
+            GameResult.mode == "multi",
+            GameResult.created_at >= start,
+        )
+    )
+    return int(n or 0)
 
 
 def _streaks(won_dates: list[date]) -> tuple[int, int]:
@@ -94,13 +115,13 @@ async def user_stats(session: AsyncSession, user_id: str) -> dict[str, Any]:
     }
 
 
-async def leaderboard(session: AsyncSession, limit: int = 20) -> list[dict[str, Any]]:
+async def leaderboard(session: AsyncSession, mode: str = "daily", limit: int = 20) -> list[dict[str, Any]]:
     wins = func.sum(case((GameResult.won.is_(True), 1), else_=0))
     played = func.count(GameResult.id)
     rows = await session.execute(
         select(User.name, User.picture, played.label("played"), wins.label("wins"))
         .join(GameResult, GameResult.user_id == User.id)
-        .where(GameResult.mode == "daily")
+        .where(GameResult.mode == mode)
         .group_by(User.id)
         .order_by(wins.desc(), played.asc())
         .limit(limit)

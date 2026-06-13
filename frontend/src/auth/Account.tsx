@@ -14,12 +14,16 @@ interface LbEntry {
 
 export default function Account() {
   const { user, stats, logout } = useAuth();
-  const [leaders, setLeaders] = useState<LbEntry[]>([]);
+  const [daily, setDaily] = useState<LbEntry[]>([]);
+  const [multi, setMulti] = useState<LbEntry[]>([]);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/leaderboard`)
-      .then((r) => (r.ok ? r.json() : { entries: [] }))
-      .then((d) => setLeaders(d.entries ?? []))
+      .then((r) => (r.ok ? r.json() : { daily: [], multi: [] }))
+      .then((d) => {
+        setDaily(d.daily ?? []);
+        setMulti(d.multi ?? []);
+      })
       .catch(() => {});
   }, [stats]);
 
@@ -83,24 +87,31 @@ export default function Account() {
           </p>
         )}
 
-        <h3>Leaderboard</h3>
-        <ol className="leaderboard">
-          {leaders.map((e, i) => (
-            <li key={i}>
-              <span className="lb-rank">#{i + 1}</span>
-              {e.picture && (
-                <img src={e.picture} alt="" className="avatar-sm" referrerPolicy="no-referrer" />
-              )}
-              <span className="lb-name">{e.name}</span>
-              <span className="lb-wins">
-                {e.wins}W · {e.winPct}%
-              </span>
-            </li>
-          ))}
-          {leaders.length === 0 && <p className="muted-text">No players ranked yet.</p>}
-        </ol>
+        <h3>🏅 Top — Daily</h3>
+        <Leaderboard entries={daily} />
+
+        <h3>⚔️ Top — Multiplayer</h3>
+        <Leaderboard entries={multi} />
       </div>
     </main>
+  );
+}
+
+function Leaderboard({ entries }: { entries: LbEntry[] }) {
+  if (entries.length === 0) return <p className="muted-text">No players ranked yet.</p>;
+  return (
+    <ol className="leaderboard">
+      {entries.map((e, i) => (
+        <li key={i}>
+          <span className="lb-rank">#{i + 1}</span>
+          {e.picture && <img src={e.picture} alt="" className="avatar-sm" referrerPolicy="no-referrer" />}
+          <span className="lb-name">{e.name}</span>
+          <span className="lb-wins">
+            {e.wins}W · {e.winPct}%
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 

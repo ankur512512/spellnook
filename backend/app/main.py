@@ -183,7 +183,27 @@ async def record_result(
 
 @app.get("/api/leaderboard")
 async def get_leaderboard(session: AsyncSession = Depends(get_session)):
-    return {"entries": await stats.leaderboard(session)}
+    return {
+        "daily": await stats.leaderboard(session, "daily"),
+        "multi": await stats.leaderboard(session, "multi"),
+    }
+
+
+MAX_FREE_MP_GAMES = 3
+
+
+@app.get("/api/mp/quota")
+async def mp_quota(
+    tzOffset: int = 0,
+    user: User = Depends(auth.current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    played = await stats.mp_games_today(session, user.id, tzOffset)
+    return {
+        "limit": MAX_FREE_MP_GAMES,
+        "playedToday": played,
+        "remaining": max(0, MAX_FREE_MP_GAMES - played),
+    }
 
 
 # --------------------------------------------------------------------------
@@ -222,7 +242,7 @@ async def _record_room_results(room: multiplayer.Room) -> None:
 
 
 @app.post("/api/room")
-def create_room():
+async def create_room(user: User = Depends(auth.current_user)):
     room = multiplayer.manager.create()
     if room is None:
         raise HTTPException(status_code=503, detail="rooms_at_capacity")
@@ -236,6 +256,7 @@ async def ws_room(
     name: str = Query("Player"),
     cid: str = Query(...),
     token: str | None = Query(default=None),
+    tz: int = Query(default=0),
 ):
     room = multiplayer.manager.get(code)
     if room is None:
@@ -248,6 +269,12 @@ async def ws_room(
     cid = cid or uuid.uuid4().hex[:8]
     display = (name or "Player")[:20]
     user_id = auth.decode_user_id(token) if token else None
+
+    # Multiplayer requires sign-in (so the per-user daily limit is enforceable).
+    if user_id is None:
+        await websocket.send_json({"type": "error", "reason": "auth_required"})
+        await websocket.close()
+        return
 
     async with room.lock:
         existing = room.players.get(cid)
@@ -268,6 +295,11 @@ async def ws_room(
                 await websocket.send_json({"type": "error", "reason": "in_progress"})
                 await websocket.close()
                 return
+            async with SessionLocal() as s:
+                if await stats.mp_games_today(s, user_id, tz) >= MAX_FREE_MP_GAMES:
+                    await websocket.send_json({"type": "error", "reason": "limit_reached"})
+                    await websocket.close()
+                    return
             player = multiplayer.Player(cid, display, websocket)
             player.user_id = user_id
             room.players[cid] = player
@@ -289,7 +321,26 @@ async def ws_room(
             if mtype == "start" and player.id == room.host_id:
                 async with room.lock:
                     length = int(msg.get("length", multiplayer.DEFAULT_LENGTH))
-                    if room.start(length):
+                    # Enforce per-player daily quota: host blocked if out of games;
+                    # any other player out of games is dropped from the room.
+                    blocked_host = False
+                    async with SessionLocal() as s:
+                        for p in list(room.players.values()):
+                            if not p.user_id:
+                                continue
+                            if await stats.mp_games_today(s, p.user_id, tz) >= MAX_FREE_MP_GAMES:
+                                if p.id == player.id:
+                                    blocked_host = True
+                                else:
+                                    try:
+                                        if p.ws:
+                                            await p.ws.send_json({"type": "error", "reason": "limit_reached"})
+                                    except Exception:  # noqa: BLE001
+                                        pass
+                                    room.players.pop(p.id, None)
+                    if blocked_host:
+                        await websocket.send_json({"type": "error", "reason": "limit_reached"})
+                    elif room.players and room.start(length):
                         await multiplayer.broadcast(room)
                     else:
                         await websocket.send_json({"type": "error", "reason": "length_unavailable"})

@@ -5,6 +5,7 @@ exercises GameResult recording, stats, leaderboard, and prints a bearer token
 for that user so the HTTP endpoints can be curled.
 """
 import asyncio
+import uuid
 from datetime import date, timedelta
 
 from app import auth, stats
@@ -15,7 +16,7 @@ from app.models import GameResult, User
 async def main():
     await init_db()
     async with SessionLocal() as s:
-        user = User(google_sub="test-sub-1", email="t@example.com", name="Tester")
+        user = User(google_sub=f"test-{uuid.uuid4().hex}", email="t@example.com", name="Tester")
         s.add(user)
         await s.commit()
         await s.refresh(user)
