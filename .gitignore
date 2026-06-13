@@ -9,6 +9,10 @@ node_modules/
 frontend/dist/
 .vite/
 
+# Build artifacts (unused by our Docker builds, which COPY only package.json + npm install)
+frontend/package-lock.json
+frontend/tsconfig.tsbuildinfo
+
 # Generated word lists (fetched at build time)
 backend/app/data/allowed.txt
 backend/app/data/allowed_*.txt
