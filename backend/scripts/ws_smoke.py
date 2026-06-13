@@ -1,26 +1,47 @@
 """Smoke test for the multiplayer WebSocket flow (run inside the backend container).
 
-Covers: create room, two players join (with stable client ids), host starts,
-guesses scored, RECONNECT mid-round preserves progress, finish -> ranks +
-revealed answer, and post-finish guess rejected.
+Multiplayer now requires sign-in, so we create two users + JWTs directly, then:
+create room (authed) -> two players join -> host starts -> guesses scored ->
+RECONNECT mid-round preserves progress -> finish -> ranks + revealed answer ->
+post-finish guess rejected.
 """
 import asyncio
 import json
 import os
 import urllib.request
+import uuid
 
 import websockets
+
+from app import auth
+from app.db import SessionLocal, init_db
+from app.models import User
 
 BASE_HTTP = os.environ.get("SMOKE_HTTP", "http://localhost:8000")
 BASE_WS = os.environ.get("SMOKE_WS", "ws://localhost:8000")
 
 # Words from the committed curated answers.txt (valid offline, no fetch needed).
 GUESSES = ["about", "above", "actor", "admit", "adopt", "adult"]
-ALICE, BOB = "alice-cid", "bob-cid"
 
 
-def url(code, name, cid):
-    return f"{BASE_WS}/ws/room/{code}?name={name}&cid={cid}"
+async def make_user(name: str) -> tuple[str, str]:
+    async with SessionLocal() as s:
+        u = User(google_sub=f"smoke-{uuid.uuid4().hex}", email=f"{name}@smoke.test", name=name)
+        s.add(u)
+        await s.commit()
+        await s.refresh(u)
+        return u.id, auth.issue_token(u.id)
+
+
+def create_room(token: str) -> str:
+    req = urllib.request.Request(
+        f"{BASE_HTTP}/api/room", method="POST", headers={"Authorization": f"Bearer {token}"}
+    )
+    return json.load(urllib.request.urlopen(req))["code"]
+
+
+def url(code: str, name: str, cid: str, token: str) -> str:
+    return f"{BASE_WS}/ws/room/{code}?name={name}&cid={cid}&token={token}"
 
 
 async def recv_until(ws, wanted, timeout=5, pred=None):
@@ -35,13 +56,14 @@ def player(state, cid):
 
 
 async def main():
-    code = json.load(
-        urllib.request.urlopen(urllib.request.Request(f"{BASE_HTTP}/api/room", method="POST"))
-    )["code"]
+    await init_db()
+    aid, atok = await make_user("Alice")
+    bid, btok = await make_user("Bob")
+    code = create_room(atok)
     print("room code:", code)
 
-    a = await websockets.connect(url(code, "Alice", ALICE))
-    b = await websockets.connect(url(code, "Bob", BOB))
+    a = await websockets.connect(url(code, "Alice", aid, atok))
+    b = await websockets.connect(url(code, "Bob", bid, btok))
     await recv_until(a, {"welcome"})
     await recv_until(b, {"welcome"})
 
@@ -49,23 +71,21 @@ async def main():
     await recv_until(a, {"state"}, pred=lambda m: m["room"]["phase"] == "playing")
     print("phase: playing")
 
-    # Two guesses each.
     for g in GUESSES[:2]:
         for ws in (a, b):
             await ws.send(json.dumps({"type": "guess", "guess": g}))
             assert (await recv_until(ws, {"guess_result"}))["valid"]
 
-    # --- Reconnection: drop Alice, reconnect with the same client id ---
+    # Reconnection: drop Alice, reconnect with the same client id + token.
     await a.close()
     await asyncio.sleep(0.3)
-    a = await websockets.connect(url(code, "Alice", ALICE))
+    a = await websockets.connect(url(code, "Alice", aid, atok))
     await recv_until(a, {"welcome"})
     st = await recv_until(a, {"state"})
-    preserved = len(player(st, ALICE)["rows"])
+    preserved = len(player(st, aid)["rows"])
     print("rows preserved after reconnect:", preserved)
     assert preserved == 2, st
 
-    # Finish the round.
     for g in GUESSES[2:]:
         for ws in (a, b):
             await ws.send(json.dumps({"type": "guess", "guess": g}))

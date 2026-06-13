@@ -9,7 +9,6 @@ const API_BASE = API_URL;
 const RANK: Record<string, number> = { correct: 3, present: 2, absent: 1 };
 
 const CID_KEY = "spellnook-mp-cid";
-const NAME_KEY = "spellnook-mp-name";
 const SESSION_KEY = "spellnook-mp-session";
 
 export interface MpPlayer {
@@ -40,6 +39,12 @@ interface MyRow {
   statuses: LetterStatus[];
 }
 
+export interface MpQuota {
+  limit: number;
+  playedToday: number;
+  remaining: number;
+}
+
 interface MpState {
   ws: WebSocket | null;
   you: string | null;
@@ -47,17 +52,17 @@ interface MpState {
   error: string | null;
   message: string | null;
   connecting: boolean;
-  name: string;
   round: number;
+  quota: MpQuota | null;
 
   myRows: MyRow[];
   current: string;
   myKeys: Record<string, LetterStatus>;
 
-  setName: (name: string) => void;
   resume: () => void;
-  createRoom: (name: string) => Promise<void>;
-  joinRoom: (code: string, name: string) => void;
+  fetchQuota: () => Promise<void>;
+  createRoom: () => Promise<void>;
+  joinRoom: (code: string) => void;
   leave: () => void;
   start: (length: number) => void;
   addLetter: (ch: string) => void;
@@ -72,7 +77,6 @@ let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 let reconnectAttempts = 0;
 let intentionalClose = false;
 let lastCode = "";
-let lastName = "";
 const PING_MS = 25_000;
 const MAX_RECONNECTS = 10;
 
@@ -101,7 +105,6 @@ function wsUrl(code: string, name: string): string {
 
 interface SavedSession {
   code: string;
-  name: string;
   round: number;
   myRows: MyRow[];
   current: string;
@@ -124,14 +127,17 @@ export const useMp = create<MpState>((set, get) => {
   };
 
   const persist = () => {
-    const { room, name, round, myRows, current } = get();
+    const { room, round, myRows, current } = get();
     if (!room) {
       localStorage.removeItem(SESSION_KEY);
       return;
     }
-    const session: SavedSession = { code: room.code, name, round, myRows, current };
+    const session: SavedSession = { code: room.code, round, myRows, current };
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   };
+
+  // Multiplayer name comes from the signed-in account (sign-in is required).
+  const authName = () => useAuth.getState().user?.name ?? "Player";
 
   const keysFromRows = (rows: MyRow[]): Record<string, LetterStatus> => {
     const keys: Record<string, LetterStatus> = {};
@@ -144,13 +150,12 @@ export const useMp = create<MpState>((set, get) => {
     return keys;
   };
 
-  const connect = (code: string, name: string) => {
+  const connect = (code: string) => {
     intentionalClose = false;
     clearTimeout(reconnectTimer);
     lastCode = code;
-    lastName = name;
     set({ connecting: true, error: null });
-    const ws = new WebSocket(wsUrl(code, name));
+    const ws = new WebSocket(wsUrl(code, authName()));
 
     ws.onopen = () => {
       set({ connecting: false });
@@ -186,6 +191,7 @@ export const useMp = create<MpState>((set, get) => {
         if (prevPhase === "playing" && room.phase === "finished") {
           const me = room.players.find((p) => p.id === get().you);
           if (me && !me.won) loseFeedback();
+          get().fetchQuota(); // a game was consumed
         }
       } else if (msg.type === "guess_result") {
         if (msg.valid) {
@@ -212,9 +218,15 @@ export const useMp = create<MpState>((set, get) => {
       } else if (msg.type === "error") {
         set({ error: msg.reason, connecting: false });
         // Unrecoverable: stop auto-reconnect and drop the session.
-        if (msg.reason === "room_not_found" || msg.reason === "room_full" || msg.reason === "in_progress") {
+        if (
+          ["room_not_found", "room_full", "in_progress", "limit_reached", "auth_required"].includes(
+            msg.reason,
+          )
+        ) {
           intentionalClose = true;
           localStorage.removeItem(SESSION_KEY);
+          set({ room: null });
+          if (msg.reason === "limit_reached") get().fetchQuota();
         }
       }
     };
@@ -237,7 +249,7 @@ export const useMp = create<MpState>((set, get) => {
       const delay = Math.min(1000 * 2 ** (reconnectAttempts - 1), 10_000);
       set({ message: "Reconnecting…" });
       clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(() => connect(rejoinCode, sess?.name || lastName), delay);
+      reconnectTimer = setTimeout(() => connect(rejoinCode), delay);
     };
 
     set({ ws });
@@ -250,47 +262,70 @@ export const useMp = create<MpState>((set, get) => {
     error: null,
     message: null,
     connecting: false,
-    name: localStorage.getItem(NAME_KEY) || "",
     round: 0,
+    quota: null,
     myRows: [],
     current: "",
     myKeys: {},
 
-    setName: (name) => {
-      localStorage.setItem(NAME_KEY, name);
-      set({ name });
-    },
-
     resume: () => {
       if (get().ws || get().room) return;
+      if (!useAuth.getState().token) return; // multiplayer requires sign-in
       const s = loadSession();
       if (!s?.code) return;
       // Restore local board first so the round check below preserves it.
       set({
-        name: s.name || get().name,
         round: s.round,
         myRows: s.myRows || [],
         current: s.current || "",
         myKeys: keysFromRows(s.myRows || []),
       });
-      connect(s.code, s.name || get().name || "Player");
+      connect(s.code);
     },
 
-    createRoom: async (name) => {
+    fetchQuota: async () => {
+      const token = useAuth.getState().token;
+      if (!token) {
+        set({ quota: null });
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/api/mp/quota`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) set({ quota: await res.json() });
+      } catch {
+        /* ignore */
+      }
+    },
+
+    createRoom: async () => {
+      const token = useAuth.getState().token;
+      if (!token) {
+        set({ error: "auth_required" });
+        return;
+      }
       set({ error: null });
-      const res = await fetch(`${API_BASE}/api/room`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/api/room`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) {
-        set({ error: res.status === 503 ? "rooms_full" : "create_failed" });
+        set({ error: res.status === 503 ? "rooms_full" : res.status === 401 ? "auth_required" : "create_failed" });
         return;
       }
       const { code } = await res.json();
       set({ round: 0, myRows: [], current: "", myKeys: {} });
-      connect(code, name || "Player");
+      connect(code);
     },
 
-    joinRoom: (code, name) => {
+    joinRoom: (code) => {
+      if (!useAuth.getState().token) {
+        set({ error: "auth_required" });
+        return;
+      }
       set({ round: 0, myRows: [], current: "", myKeys: {} });
-      connect(code.trim().toUpperCase(), name || "Player");
+      connect(code.trim().toUpperCase());
     },
 
     leave: () => {

@@ -488,6 +488,60 @@ button.primary:disabled {
   text-align: center;
 }
 
+.signin-card {
+  text-align: center;
+}
+
+.signin-card h2 {
+  margin-top: 0;
+}
+
+.mp-account {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+
+.games-left {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--correct);
+  margin: 2px 0;
+}
+
+.games-left.none {
+  color: var(--muted);
+}
+
+.lobby-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lobby-section h3 {
+  margin: 4px 0 0;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.share-hint {
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.playagain {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 /* ---- Multiplayer room ---- */
 .mp-room {
   flex: 1;
