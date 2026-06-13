@@ -10,9 +10,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .models import GameResult, User
 
 
-async def mp_games_today(session: AsyncSession, user_id: str) -> int:
-    """Count a user's multiplayer games played so far today (UTC, all lengths)."""
-    start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+async def mp_games_today(session: AsyncSession, user_id: str, tz_offset_minutes: int = 0) -> int:
+    """Count a user's multiplayer games played so far today (all lengths).
+
+    The "day" resets at the player's LOCAL midnight. tz_offset_minutes is the
+    browser's Date.getTimezoneOffset() (UTC - local, in minutes; e.g. IST = -330).
+    """
+    off = max(-1440, min(1440, int(tz_offset_minutes)))  # clamp bad/spoofed values
+    now = datetime.now(timezone.utc)
+    local_now = now - timedelta(minutes=off)  # wall-clock in the player's zone
+    local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start = local_midnight + timedelta(minutes=off)  # that local midnight as a UTC instant
     n = await session.scalar(
         select(func.count(GameResult.id)).where(
             GameResult.user_id == user_id,

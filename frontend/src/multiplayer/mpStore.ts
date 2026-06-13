@@ -92,7 +92,7 @@ function clientId(): string {
 function wsUrl(code: string, name: string): string {
   const cid = clientId();
   const token = useAuth.getState().token;
-  let q = `name=${encodeURIComponent(name)}&cid=${encodeURIComponent(cid)}`;
+  let q = `name=${encodeURIComponent(name)}&cid=${encodeURIComponent(cid)}&tz=${new Date().getTimezoneOffset()}`;
   if (token) q += `&token=${encodeURIComponent(token)}`;
   if (API_BASE) {
     const u = new URL(API_BASE);
@@ -290,7 +290,7 @@ export const useMp = create<MpState>((set, get) => {
         return;
       }
       try {
-        const res = await fetch(`${API_BASE}/api/mp/quota`, {
+        const res = await fetch(`${API_BASE}/api/mp/quota?tzOffset=${new Date().getTimezoneOffset()}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) set({ quota: await res.json() });

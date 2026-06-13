@@ -194,9 +194,11 @@ MAX_FREE_MP_GAMES = 3
 
 @app.get("/api/mp/quota")
 async def mp_quota(
-    user: User = Depends(auth.current_user), session: AsyncSession = Depends(get_session)
+    tzOffset: int = 0,
+    user: User = Depends(auth.current_user),
+    session: AsyncSession = Depends(get_session),
 ):
-    played = await stats.mp_games_today(session, user.id)
+    played = await stats.mp_games_today(session, user.id, tzOffset)
     return {
         "limit": MAX_FREE_MP_GAMES,
         "playedToday": played,
@@ -254,6 +256,7 @@ async def ws_room(
     name: str = Query("Player"),
     cid: str = Query(...),
     token: str | None = Query(default=None),
+    tz: int = Query(default=0),
 ):
     room = multiplayer.manager.get(code)
     if room is None:
@@ -293,7 +296,7 @@ async def ws_room(
                 await websocket.close()
                 return
             async with SessionLocal() as s:
-                if await stats.mp_games_today(s, user_id) >= MAX_FREE_MP_GAMES:
+                if await stats.mp_games_today(s, user_id, tz) >= MAX_FREE_MP_GAMES:
                     await websocket.send_json({"type": "error", "reason": "limit_reached"})
                     await websocket.close()
                     return
@@ -325,7 +328,7 @@ async def ws_room(
                         for p in list(room.players.values()):
                             if not p.user_id:
                                 continue
-                            if await stats.mp_games_today(s, p.user_id) >= MAX_FREE_MP_GAMES:
+                            if await stats.mp_games_today(s, p.user_id, tz) >= MAX_FREE_MP_GAMES:
                                 if p.id == player.id:
                                     blocked_host = True
                                 else:
